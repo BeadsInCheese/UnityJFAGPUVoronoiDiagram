@@ -1,0 +1,44 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+RWTexture2D<float4> Input;
+RWTexture2D<float4> Result;
+int _Iter;
+int _MaxIter=7;
+float _Step=1;
+float random(float2 uv)
+{
+    return frac(sin(dot(uv, float2(12.9898, 78.233))) * 43758.5453123);
+}
+bool isSeed(float2 uv) {
+
+    if (random(uv) > .995) {
+        return true;
+    }
+    return false;
+}
+
+
+[numthreads(32,32,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    int2 offsets[9] = { int2(0,-1),int2(-1,0),int2(-1,-1),int2(0,1),int2(1,0),int2(1,1),int2(1,-1),int2(-1,1),float2(0,0) };
+    float4 col = Input[id.xy];
+    int StepSize = _Step *max(1,pow(2, 7- (_Iter)));
+    if (isSeed(id.xy/100.0)) {
+        col.xyzw = float4(id.x/128.0, id.y/128.0, 0.2,1);
+    }
+    else {
+        float closest = 99999999999.0;
+            for (int i = 0; i < 9; i++) {
+                float4 c = Input[(id.xy + (StepSize)*offsets[i])].xyzw;
+                if ( c.z > .19) {
+                    if (Input[id.xy].z==0||closest > length(id.xy- 128 * c.xy)) {
+                        col.xyzw = float4(c.x, c.y, 0.2, 1);
+                        closest = length(id.xy - 128 * c.xy);
+                    }
+                }
+            }
+        }
+    Result[id.xy] = col;
+}
